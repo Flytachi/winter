@@ -3,6 +3,7 @@
 
 // Version PHP 8.3
 if (PHP_VERSION_ID >= 80300) {
+    chdir(__DIR__);
 
     require './bootstrap.php';
 
