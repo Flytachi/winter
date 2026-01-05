@@ -14,8 +14,10 @@ class MainController extends RestController
 //        $id = TestJob::dispatch();
 //        dd(Signal::interrupt($id));
 //        TestJob::dispatch(['greeting' => 'Hello World!']);
-        $id = TestProcess::dispatch(['greeting' => 'Hello World!']);
-        sleep(5);
-        Signal::interrupt($id);
+//        $id = TestProcess::dispatch(['greeting' => 'Hello World!']);
+
+//        sleep(5);
+//        Signal::interrupt($id);
+        dd(TestDaemon::stop());
     }
 }
