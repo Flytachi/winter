@@ -7,7 +7,7 @@
     "extra": {},
     "scripts": {
         "post-create-project-cmd": [
-            "chmod -R 775 storage",
+            "chmod -R 777 storage",
             "@php call cfg init"
         ],
         "dev-server": "@php -S 0.0.0.0:8000 -t ./public",
