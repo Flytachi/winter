@@ -4,11 +4,11 @@
     "keywords": ["Winter", "winter", "framework"],
     "type": "project",
     "license": "MIT",
-    "extra": {},
     "scripts": {
         "post-create-project-cmd": [
             "chmod -R 777 storage",
-            "@php call cfg init"
+            "@php call cfg init",
+            "@php -r \"echo PHP_EOL . '[tip] Run: php call cfg completion -i' . PHP_EOL;\""
         ],
         "dev-server": "@php -S 0.0.0.0:8000 -t ./public",
         "test": "phpunit tests"
@@ -18,9 +18,14 @@
             "Main\\": "main/"
         }
     },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
     "require": {
         "php": ">=8.3",
-        "flytachi/winter-kernel": "^1.0"
+        "flytachi/winter-kernel": "^2.0"
     },
     "require-dev": {
         "phpunit/phpunit": "@stable",
