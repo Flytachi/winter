@@ -9,5 +9,6 @@ require '../bootstrap.php';
 //]);
 \Flytachi\Winter\Kernel\Actuator::use(
 //    new \Flytachi\Winter\Kernel\Http\Health\Health(), // health check endpoints
-    new \Flytachi\Winter\Kernel\Http\Router()
+    new \Flytachi\Winter\Kernel\Http\Router(),
+    new \Flytachi\Winter\Kernel\Http\RouteNotFound(),
 );
