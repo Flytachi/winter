@@ -10,22 +10,16 @@
             "@php call cfg init",
             "@php -r \"echo PHP_EOL . '[tip] Run: php call cfg completion -i' . PHP_EOL;\""
         ],
-        "dev-server": "@php -S 0.0.0.0:8000 -t ./public",
-        "test": "phpunit tests"
+        "dev-server": "@php -S 0.0.0.0:8000 -t ./public"
     },
     "autoload": {
         "psr-4": {
             "Main\\": "main/"
         }
     },
-    "autoload-dev": {
-        "psr-4": {
-            "Tests\\": "tests/"
-        }
-    },
     "require": {
         "php": ">=8.3",
-        "flytachi/winter-kernel": "^2.0"
+        "flytachi/winter-kernel": "@dev"
     },
     "require-dev": {
         "phpunit/phpunit": "@stable",
