@@ -1,72 +1,49 @@
 <?php
 
-use Flytachi\Winter\K2\Http\Adapter\FpmRequest;
-use Flytachi\Winter\K2\Http\Adapter\FpmResponse;
-use Flytachi\Winter\K2\Kernel;
-use Flytachi\Winter\K2\Route\Router;
-
+/*
+    Autoload + Bootstrap
+    --------------------
+    Loads Composer dependencies and defines the Boot class (extends BaseBoot).
+    All kernel configuration — paths, .env, DI, CORS, Health — lives in bootstrap.php.
+    This file stays minimal: one require, one call.
+*/
 require '../bootstrap.php';
 
 /*
-    Router — attribute scan
-    -----------------------
-    Recursively walks Kernel::$pathRoot looking for controller classes annotated
-    with #[GetMapping], #[PostMapping], #[PutMapping], #[PatchMapping],
-    #[DeleteMapping], or #[RequestMapping] and registers their routes automatically.
+    FPM entry point
+    ---------------
+    Boot::web() runs the full request lifecycle:
 
-    The vendor/ directory is always excluded from the scan.
-    Additional directories to skip can be passed as a second argument:
+      1. configure()             — Kernel::init(), .env, logging
+      2. DI scan                 — auto-discovers #[Singleton] / #[Request] / #[Transient]
+      3. providers()             — service providers, manual bindings
+      4. channels() / plugins()  — extra log channels, plugin routes
+      5. httpCors() / health()   — CORS policy, /actuator endpoints
+      6. LoggerFactory           — switches active channel to 'http'
+      7. Router::resolve()       — loads route cache (production) or scans (dev/DEBUG=true)
+      8. Router::static()        — serves files from public/ directly (dev server / Swoole)
+      9. Router::handle()        — dispatches the request:
+           a. Header::init()            snapshot superglobals → Header bag
+           b. Locale::initFromRequest() detect Accept-Language / locale cookie
+           c. Static file check         short-circuit for existing public files
+           d. Global CORS headers       applied before dispatch (covers 404/500 too)
+           e. OPTIONS preflight         returns 204 before handler invocation
+           f. Route dispatch            O(1) static map → chunked regex dynamic scan
+           g. Per-route #[CrossOrigin]  overrides global CORS if present
+           h. Middleware before()       run in declaration order
+           i. Controller method         resolved via ReflectionCache + ParameterResolver
+           j. Middleware after()        run in reverse order
+           k. Response serialise        Sendable::send() or ResponseEntity::ok()->send()
+           l. Error handling            ExceptionWrapper maps Throwable → HTTP response
 
-        Router::fromScan(Kernel::$pathRoot, [Kernel::$pathRoot . '/legacy'])
+    Route cache:
+      DEBUG=false — loads from storage/cache/mapping.php on warm boots;
+                    scans and writes cache on first boot after deployment.
+      DEBUG=true  — always rescans (dev mode, no stale routes).
 
-    Also wires up:
-      · Plugin routes  — every Plugin::registry() prefix is scanned from its src/
-      · Health routes  — if Health::configure() was called in bootstrap.php
-      · ExceptionWrapper — discovers custom #[AdviceException] classes for error rendering
+    To inject per-request context fields into every log line:
+      $ctx = LoggerFactory::contextStorage();
+      $ctx->set('request_id', uniqid('', true));
+      $ctx->set('user_id', $authenticatedUserId);
 */
-$router = Router::fromScan(Kernel::$pathRoot);
-
-/*
-    Static file serving  (optional)
-    --------------------------------
-    Intercepts GET requests whose URI maps to a real file inside $publicDir and
-    sends the file directly — skipping route dispatch entirely.
-
-    In FPM+nginx setups nginx already handles static files, so this call is
-    a no-op in production if nginx is configured correctly. It is kept here
-    so that the built-in PHP dev server (`php -S`) works out of the box without
-    extra server configuration.
-
-    Remove or comment out this line if nginx / Apache is serving static assets.
-
-    @param string $publicDir  Absolute path to the web-accessible directory.
-*/
-$router->static(Kernel::$pathPublic);
-
-/*
-    Dispatch — FPM mode
-    -------------------
-    Reads the current HTTP request from PHP superglobals ($_SERVER, $_GET, $_POST,
-    $_FILES, php://input) and writes the response via http_response_code() / header()
-    / echo.  One request → one process lifecycle; no shared state between calls.
-
-    For Swoole coroutine mode use the Swoole adapters instead:
-        $router->handle(new SwooleRequest($req), new SwooleResponse($res));
-
-    The pipeline executed on every request:
-      1. Header::init()       — snapshot superglobals into the static Header bag
-      2. Locale::initFromRequest() — detect Accept-Language / locale cookie
-      3. Static file check    — short-circuit for existing files (see above)
-      4. Global CORS headers  — applied before route dispatch (covers 404 / 500 too)
-      5. OPTIONS preflight    — returns 204 and exits before handler invocation
-      6. Route dispatch       — static hash-map lookup, then regex dynamic scan
-      7. Middleware before()  — run in declaration order
-      8. Controller method    — resolved via ReflectionCache + ParameterResolver
-      9. Middleware after()   — run in reverse order
-     10. Response serialise   — Sendable::send() or ResponseEntity::ok($result)->send()
-     11. Error handling       — ExceptionWrapper maps Throwable → HTTP response
-*/
-$router->handle(
-    new FpmRequest(),
-    new FpmResponse(),
-);
+Boot::web();

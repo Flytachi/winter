@@ -27,44 +27,7 @@ if (PHP_VERSION_ID >= 80300) {
     */
     require './bootstrap.php';
 
-    /*
-        Console dispatcher
-        ------------------
-        Core parses $argv and routes to the matching Command class.
-
-        Argument syntax
-        ───────────────
-          ./call <command> [args…] [--option[=value]…] [-flags…]
-
-          arguments  — positional words without a prefix       → $arguments['arguments']
-          options    — --key or --key=value pairs              → $arguments['options']
-          flags      — single-character switches bundled as -abc → $arguments['flags']
-
-        Built-in commands
-        ─────────────────
-          help      — list all commands and show environment info
-          make      — scaffold controllers, middleware, models, etc.
-          run       — execute a registered runnable / script
-          script    — manage background scripts           (alias: sc)
-          thread    — manage worker threads               (alias: th)
-          mapping   — display the registered route table
-          db        — database utilities (migrations, seeds)
-          cfg       — inspect resolved configuration values
-          storage   — manage storage directories
-          complete  — shell tab-completion helper
-
-        Default behaviour (no command given): shows the help screen.
-
-        Examples
-        ────────
-          ./call help
-          ./call help make
-          ./call make controller UserController
-          ./call run --name=queue-worker
-          ./call sc start MyScript
-    */
-    $code = new \Flytachi\Winter\Console\Core($argv);
-    $code->run();
+    Boot::cli($argv);
 
 } else {
     echo "\033[33m"." Please use PHP version 8.3 or higher.\n";

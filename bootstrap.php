@@ -2,131 +2,191 @@
 
 declare(strict_types=1);
 
+use Flytachi\Winter\DI\Container;
+use Flytachi\Winter\K2\BaseBoot;
 use Flytachi\Winter\K2\Http\Cors;
 use Flytachi\Winter\K2\Http\Health\Health;
 use Flytachi\Winter\K2\Kernel;
 use Flytachi\Winter\K2\Plugin;
 
-/*
-    Autoload
-    --------
-    Loads all Composer-managed dependencies and framework classes.
-*/
 require __DIR__ . '/vendor/autoload.php';
 
-/*
-    Kernel
-    ------
-    Bootstraps the framework: resolves paths, loads .env, configures
-    logging, timezone, error reporting and thread runner.
+/**
+ * Boot — application bootstrap class.
+ *
+ * Extend BaseBoot and override only the hooks you need.
+ * All hooks are optional — omit them to use framework defaults.
+ *
+ * Boot order (called automatically by every entry point):
+ *   1. configure()  — Kernel::init(), paths, .env, logging
+ *   2. DI scan      — auto-discovers #[Singleton] / #[Request] / #[Transient]
+ *   3. providers()  — service providers and manual bindings
+ *   4. channels()   — custom log channels
+ *   5. plugins()    — route-prefixed sub-applications
+ *   6. httpCors()   — global CORS policy
+ *   7. health()     — /actuator endpoints
+ *
+ * Entry points (call one from each runtime file):
+ *   Boot::web()            public/index.php  — FPM
+ *   Boot::swoole()         server.php        — Swoole HTTP server
+ *   Boot::cli($argv)       call              — CLI console
+ *   Boot::executor($argv)  wKernelExecutor   — thread / job runner
+ */
+class Boot extends BaseBoot
+{
+    /**
+     * Kernel — paths, .env, logging, timezone.
+     *
+     * All parameters are optional; omitted ones are derived from $pathRoot.
+     * Logging is configured entirely via .env — see LOG_* variables below.
+     *
+     * Paths:
+     *   pathRoot            Project root                      (default: cwd)
+     *   pathEnv             .env file location                (default: $pathRoot/.env)
+     *   pathPublic          Web-accessible directory          (default: $pathRoot/public)
+     *   pathResource        View / template directory         (default: $pathRoot/resources)
+     *   pathStorage         Writable storage root             (default: $pathRoot/storage)
+     *   pathStorageLog      Log files directory               (default: $pathStorage/logs)
+     *   pathStorageCache    Cache files directory             (default: $pathStorage/cache)
+     *   pathStorageRunnable Runnable task files               (default: $pathStorage/runnable)
+     *
+     * .env logging variables:
+     *   LOG_LEVEL=info          Minimum severity: DEBUG|INFO|NOTICE|WARNING|ERROR|...
+     *                           Empty → logging disabled (NullLogger for all channels)
+     *   LOG_FORMAT=line         Output format: line | json
+     *   LOG_OUTPUT=auto         Destination: auto | stdout | stderr | syslog | file | null
+     *                             auto — Docker/K8s → syslog, Swoole → stdout, FPM/CLI → stderr
+     *   LOG_FILE=               Absolute path when LOG_OUTPUT=file
+     *   LOG_FILE_MAX=30         Number of daily rotating files to keep
+     *   LOG_SYSLOG_IDENT=winter Program identity tag in syslog (journalctl -t winter)
+     *
+     * Per-channel overrides (LOG_{CHANNEL}_* takes priority over global):
+     *   LOG_HTTP_LEVEL=warning
+     *   LOG_HTTP_OUTPUT=file
+     *   LOG_HTTP_FILE=/var/log/app/http.log
+     *   LOG_CLI_OUTPUT=stderr
+     *   LOG_SYS_OUTPUT=syslog
+     */
+    protected static function configure(): void
+    {
+        Kernel::init();
+    }
 
-    All parameters are optional — omitted ones are derived from $pathRoot.
+    /**
+     * DI — service providers and manual bindings.
+     *
+     * Called after the Scanner auto-discovers #[Singleton] / #[Request] / #[Transient].
+     * Use this hook to bind interfaces to implementations, register factories,
+     * or set named scalar values that cannot be expressed via attributes.
+     *
+     * Service providers (group related bindings):
+     *   $c->register(AppServiceProvider::class);
+     *   $c->register(DatabaseServiceProvider::class);
+     *
+     * Manual bindings:
+     *   $c->singleton(CacheInterface::class, RedisCache::class);
+     *   $c->request(AuthContext::class);
+     *   $c->transient(QueryBuilder::class);
+     *   $c->bind(MailerInterface::class, fn(Container $c) =>
+     *       new SmtpMailer(env('MAIL_HOST'), $c->make(LoggerInterface::class))
+     *   );
+     *
+     * Named scalar values (inject via #[Inject('config.timeout')]):
+     *   $c->set('config.timeout', (int) env('APP_TIMEOUT', 30));
+     *   $c->set('app.name', env('APP_NAME', 'Winter'));
+     */
+    protected static function providers(Container $c): void
+    {
+        // $c->register(AppServiceProvider::class);
+    }
 
-    @param string|null $pathRoot            Project root directory           (default: auto-detected)
-    @param string|null $pathEnv             .env file location               (default: $pathRoot/.env)
-    @param string|null $pathPublic          Web-accessible public directory  (default: $pathRoot/public)
-    @param string|null $pathResource        View / template resources        (default: $pathRoot/resources)
-    @param string|null $pathStorage         Writable storage root            (default: $pathRoot/storage)
-    @param string|null $pathStorageLog      Log files directory              (default: $pathStorage/logs)
-    @param string|null $pathStorageCache    Cache files directory            (default: $pathStorage/cache)
-    @param string|null $pathStorageRunnable Runnable task files              (default: $pathStorage/runnable)
-    @param bool        $isTmpVolatile       Volatile in sys_get_temp_dir()   (default: true)
-    @param LoggerInterface|null $logger     Custom PSR-3 logger              (default: auto from .env)
+    /**
+     * Logging — additional channels beyond the built-in sys / http / cli.
+     *
+     * Each channel reads LOG_{NAME}_* env vars with the same fallback chain
+     * as the built-in channels. Channel name is lowercase by convention.
+     *
+     *   Kernel::channel('job');
+     *   Kernel::channel('daemon');
+     *
+     * Usage in application code:
+     *   LoggerFactory::getLogger(MyJob::class, 'job')->info('started');
+     *   LoggerFactory::channel('daemon')->warning('slow tick');
+     *
+     * .env for custom channels:
+     *   LOG_JOB_LEVEL=debug
+     *   LOG_JOB_OUTPUT=file
+     *   LOG_JOB_FILE=/var/log/app/job.log
+     *   LOG_JOB_FILE_MAX=7
+     */
+    protected static function channels(): void
+    {
+        // Kernel::channel('job');
+    }
 
-    ── Logging (.env variables) ────────────────────────────────────────────────
+    /**
+     * CORS — global Cross-Origin policy.
+     *
+     * Applied to every response (including 404 / 500) before route dispatch.
+     * Per-route overrides are available via #[CrossOrigin] on controller class or method.
+     *
+     *   Cors::configure(
+     *       origins:       ['https://app.example.com'],
+     *       allowHeaders:  ['Content-Type', 'Authorization', 'X-Request-Id'],
+     *       exposeHeaders: ['X-Request-Id'],
+     *       credentials:   true,
+     *       maxAge:        3600,
+     *   );
+     *
+     * Empty origins array → wildcard '*' (any origin allowed).
+     */
+    protected static function httpCors(): void
+    {
+        // Cors::configure();
+    }
 
-    All logging is configured via .env — no code changes needed.
+    /**
+     * Health / Actuator — diagnostic endpoints under /actuator.
+     *
+     * Endpoints (GET):
+     *   /actuator            — full aggregated report
+     *   /actuator/health     — up | degraded | down
+     *   /actuator/info       — PHP version, SAPI, framework meta
+     *   /actuator/metrics    — CPU, memory, disk, opcache, uptime
+     *   /actuator/env        — custom env values
+     *   /actuator/loggers    — active channels and levels
+     *   /actuator/mappings   — registered route table
+     *
+     * Default (built-in indicator, open access):
+     *   Health::configure();
+     *
+     * Custom indicator + middleware guard:
+     *   Health::configure(
+     *       indicator:  App\Health\AppHealthIndicator::class,
+     *       middleware: App\Http\Middleware\InternalOnlyMiddleware::class,
+     *   );
+     */
+    protected static function health(): void
+    {
+//         Health::configure();
+    }
 
-    LOGGER_LEVEL_ALLOW=DEBUG,INFO,WARNING,ERROR
-        Comma-separated list of log levels to enable.
-        Available: DEBUG | INFO | NOTICE | WARNING | ERROR | CRITICAL | ALERT | EMERGENCY
-        Empty value disables logging entirely.
-
-    LOGGER_SYSLOG=true
-        Force output to syslog. Auto-enabled when running inside Docker
-        (detected by presence of /.dockerenv).
-
-    LOGGER_FILE_MAX=7
-        Number of rotating daily log files to keep in $pathStorageLog.
-        Set to 0 to disable file logging.
-
-    LOGGER_LINE_DATE_FORMAT=Y-m-d H:i:s P
-        Timestamp format for each log line (PHP date() format).
-
-    LOGGER_FILE_DATE_FORMAT=Y-m-d
-        Date suffix appended to rotating log filenames, e.g. app-2024-01-15.log
-*/
-Kernel::init();
-
-/*
-    CORS  (optional)
-    ----------------
-    Global Cross-Origin policy applied to every response, including 404 / 500.
-    Per-route overrides are available via the #[CrossOrigin] attribute on any
-    controller class or method — method-level takes priority over class-level.
-
-    @param string[] $origins        Allowed origins. Empty array → wildcard '*'.
-    @param string[] $allowHeaders   Headers allowed in preflight.
-    @param string[] $exposeHeaders  Headers exposed to the browser.
-    @param bool     $credentials    Send Access-Control-Allow-Credentials.
-    @param int      $maxAge         Preflight cache lifetime in seconds.
-
-    Cors::configure(
-        origins:       ['https://app.example.com', 'https://admin.example.com'],
-        allowHeaders:  ['Content-Type', 'Authorization', 'X-Request-Id'],
-        exposeHeaders: ['X-Request-Id'],
-        credentials:   true,
-        maxAge:        3600,
-    );
-*/
-//Cors::configure();
-
-/*
-    Health / Actuator  (optional)
-    ------------------------------
-    Registers read-only diagnostic endpoints under /actuator.
-    All endpoints return JSON. Useful for load-balancer probes and monitoring.
-
-    Endpoints (GET):
-        /actuator            — full report (aggregates all methods below)
-        /actuator/health     — overall status: up | degraded | down
-                               checks DB ping, Redis ping, disk usage, memory usage
-                               degraded: ≥80% usage  |  down: ≥90% usage or connection failed
-        /actuator/info       — PHP version, SAPI, framework version, project meta
-        /actuator/metrics    — CPU load, memory, disk, opcache stats, request info, uptime
-        /actuator/env        — custom env values (override env() in your indicator)
-        /actuator/loggers    — active log levels from LOGGER_LEVEL_ALLOW
-        /actuator/mappings   — registered route table
-
-    @param string      $indicator  Class implementing HealthIndicatorInterface (default: built-in).
-    @param string|null $middleware Middleware class to guard all /actuator/* endpoints.
-
-    Default (built-in indicator, open access):
-        Health::configure();
-
-    Custom indicator — extend HealthIndicator or implement HealthIndicatorInterface:
-        Health::configure(indicator: App\Health\AppHealthIndicator::class);
-
-    With middleware guard (e.g. require internal API key):
-        Health::configure(
-            indicator:  App\Health\AppHealthIndicator::class,
-            middleware: App\Http\Middleware\InternalOnlyMiddleware::class,
-        );
-*/
-//Health::configure();
-
-/*
-    Plugins  (optional)
-    -------------------
-    Registers Composer packages as route-prefixed sub-applications.
-    Each plugin's src/ directory is scanned for controllers automatically
-    by Router::fromScan() — no extra wiring required.
-
-    @param string $package  Composer package name  (e.g. 'acme/billing').
-    @param string $prefix   URL prefix             (e.g. '/billing').
-    @param bool   $required Throw if package is not installed (default: true).
-
-    Plugin::registry('acme/auth-plugin',    '/auth');
-    Plugin::registry('acme/billing-plugin', '/billing');
-*/
-//Plugin::registry('', '');
+    /**
+     * Plugins — route-prefixed sub-applications.
+     *
+     * Each plugin's src/ directory is scanned for controllers automatically.
+     * No extra wiring required — routes are discovered on scan.
+     *
+     *   Plugin::registry('acme/auth-plugin',    '/auth');
+     *   Plugin::registry('acme/billing-plugin', '/billing');
+     *
+     * Parameters:
+     *   package   Composer package name  (e.g. 'acme/billing')
+     *   prefix    URL prefix             (e.g. '/billing')
+     *   required  Throw if not installed (default: true)
+     */
+    protected static function plugins(): void
+    {
+//         Plugin::registry('', '');
+    }
+}
