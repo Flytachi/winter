@@ -2,15 +2,15 @@
 
 namespace Main;
 
-use Flytachi\Winter\Kernel\Stereotype\Output\Response;
-use Flytachi\Winter\Kernel\Stereotype\RestController;
-use Flytachi\Winter\Mapping\Annotation\RequestMapping;
+use Flytachi\Winter\K2\Http\Response\ResponseEntity;
+use Flytachi\Winter\K2\Route\Annotation\RequestMapping;
+use Flytachi\Winter\K2\Stereotype\Controller;
 
-class MainController extends RestController
+class MainController extends Controller
 {
     #[RequestMapping]
-    public function hello(): Response
+    public function hello(): ResponseEntity
     {
-        return new Response('Hello');
+        return ResponseEntity::ok('Hello');
     }
 }
