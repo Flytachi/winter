@@ -7,8 +7,7 @@
     "scripts": {
         "post-create-project-cmd": [
             "chmod -R 777 storage",
-            "@php call cfg init",
-            "@php -r \"echo PHP_EOL . '[tip] Run: php call cfg completion -i' . PHP_EOL;\""
+            "@php call cfg init"
         ],
         "dev-server": "@php -S 0.0.0.0:8000 -t ./public"
     },
