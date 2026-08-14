@@ -4,19 +4,12 @@
 /*
     PHP version guard
     -----------------
-    The framework requires PHP 8.3+ (named arguments, readonly properties, etc.).
+    The framework requires PHP 8.4+ (named arguments, readonly properties, etc.).
     If the requirement is not met the script exits with a human-readable message
     instead of a cryptic parse error.
 */
-if (PHP_VERSION_ID >= 80300) {
+if (PHP_VERSION_ID >= 80400) {
 
-    /*
-        Working directory
-        -----------------
-        chdir() moves the process CWD to dev/ so that relative paths inside
-        bootstrap.php (e.g. require './bootstrap.php', .env lookup, path resolution)
-        work correctly regardless of which directory the operator runs `call` from.
-    */
     chdir(__DIR__);
 
     /*
@@ -27,9 +20,9 @@ if (PHP_VERSION_ID >= 80300) {
     */
     require './bootstrap.php';
 
-    Boot::cli($argv);
+    Application::main($argv);
 
 } else {
-    echo "\033[33m"." Please use PHP version 8.3 or higher.\n";
+    echo "\033[33m"." Please use PHP version 8.4 or higher.\n";
     echo "\033[34m"." Current PHP version => " . PHP_VERSION . "\n";
 }

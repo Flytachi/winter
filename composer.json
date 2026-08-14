@@ -3,13 +3,12 @@
     "description": "Winter Framework (CLI/WEB)",
     "keywords": ["Winter", "winter", "framework"],
     "type": "project",
-    "license": "MIT",
     "scripts": {
         "post-create-project-cmd": [
+            "@php call storage init",
             "chmod -R 777 storage",
             "@php call cfg init"
-        ],
-        "dev-server": "@php -S 0.0.0.0:8000 -t ./public"
+        ]
     },
     "autoload": {
         "psr-4": {
@@ -17,17 +16,10 @@
         }
     },
     "require": {
-        "php": ">=8.3",
-        "flytachi/winter-kernel": "^3.0"
+        "php": ">=8.4",
+        "flytachi/winter-kernel": "^4.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "@stable",
         "monolog/monolog": "@stable"
-    },
-    "authors": [
-        {
-            "name": "Flytachi",
-            "email": "jasur.rakhmatov03@gmail.com"
-        }
-    ]
+    }
 }
