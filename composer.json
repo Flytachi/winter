@@ -15,7 +15,7 @@
     },
     "require": {
         "php": ">=8.4",
-        "flytachi/winter-kernel": "^4.4"
+        "flytachi/winter-kernel": "^4.6"
     },
     "require-dev": {
         "monolog/monolog": "@stable"
